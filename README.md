@@ -1,7 +1,8 @@
 # DL
 
 The idea is create a simple "Data Lake" application to:
- - collect data from different sources
+ - collect data
+   - from different types of sources
    - minimal required configuration
    - fast with minimal resource consumption
    - file storage
