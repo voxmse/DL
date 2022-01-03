@@ -5,7 +5,7 @@ Storage of arbitrary data in JSON format preserving elementary source datatypes'
 ## Datatypes
 
 | Datatype | Code | Attributes | JSON example | note |
-| -------- | ---- | ---------- | ------------ | |
+| :---: | :---: | :---: | :---: | :---: |
 | NULL | o | | "name:n": null | |
 | INTEGER | i | | "name:i": 12 | |
 | DOUBLE | e | | "name:e": 12.3456789 | |
