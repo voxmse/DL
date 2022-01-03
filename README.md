@@ -3,6 +3,7 @@
 Storage of arbitrary data in JSON format preserving elementary source datatypes' attributes
 
 ## Datatypes
+
 | Datatype | Code | Attributes | JSON example | note |
 | -------- | ---- | ---------- | ------------ | |
 | NULL | o | | "name:n": null | |
