@@ -1,0 +1,30 @@
+DECLARE col_path DEFAULT [
+  STRUCT('NAME' AS name, '' AS xpath, '' AS types),
+  STRUCT('ADDRESS', '', '')  
+];
+
+-- fails if col_path.name is not unique, is NULL or is empty
+DECLARE _Z DEFAULT (
+  SELECT AS STRUCT
+    col_path,
+    (
+      SELECT
+        CONCAT(',', STRING_AGG(name ORDER BY offset), ',') AS search_buf
+      FROM (
+        SELECT
+          cp.name,
+          offset,
+          1 / CASE WHEN COUNT(*)OVER(PARTITION BY cp.name)>1 OR cp.name IS NULL OR LENGTH(cp.name)=0 THEN 0 ELSE 1 END AS tst
+        FROM
+          UNNEST(col_path) AS cp WITH OFFSET    
+    )t
+    HAVING SUM(tst)>0) AS search_buf
+);
+
+CREATE TEMPORARY FUNCTION 
+
+WITH raw AS (
+  SELECT '{"ADDRESS:s:200":"221b, Baker Street, London, NW1 6XE, UK","BIRTHDAY:d":"2020-01-03","CHILDREN":[],"DEEP":[{"A:i":11,"B:i":12},{"C:i":31}],"ID:i":1,"IS_MARRIED:b":false,"NAME:s":"Sherlock Holmes","SALARY:n:16:2":"12.45","TAXES:n":"687192025652473624789243787872498713367.89012","TEMPERATURE":{"INDOOR:e":21.8,"OUTDOOR:e":2.3},"VISIT_TS:z":"2022-01-05 21:48:59.080790"}' row_data
+  UNION ALL
+  SELECT '{"ADDRESS:s":null,"BIRTHDAY:d":"1987-12-16","CHILDREN":[{":s":"John Watson Jr"}],"DEEP":[{"A:i":1,"B:i":2},{"A:i":3,"B:i":4}],"ID:i":1,"NAME:s":"John H. Watson","SALARY:n:16:2":"1245.12","TAXES:s":"0.45","TEMPERATURE":{"INDOOR:e":21.8,"OUTDOOR:e":2.3},"VISIT_TS:z":null}'
+)
