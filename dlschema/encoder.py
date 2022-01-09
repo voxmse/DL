@@ -1,7 +1,7 @@
 from typing import Any, List, Optional, Dict, Union, Tuple
 from decimal import Decimal
 from datetime import date, datetime, time
-from base64 import decodestring
+from base64 import b64decode
 from json import dumps, JSONEncoder
 from hashlib import sha1
 from copy import deepcopy
@@ -74,6 +74,7 @@ class DlDouble(DlBaseData):
     @property
     def typename(self) -> str:
         return "DOUBLE"
+
 
 class DecimalEncoder(JSONEncoder):
     def default(self, o):
@@ -237,13 +238,16 @@ class DlBoolean(DlBaseData):
 
 
 class DlRaw(DlBaseData):
-    def __init__(self, value: Optional[str]):
-        if not value is None:
+    def __init__(self, value: Optional[str], typelength: Optional[int]=None):
+        if typelength is not None and typelength < 0: raise ValueError(f"typelength({typelength}) should be positive")
+        if value is not None and typelength is not None and typelength < ceil(len(value)/1.5): raise ValueError(f"declared typelength({typelength}) is not enought to store the value({ceil(len(value)/1.5)})")    
+        if value is not None:
             try:
-                decodestring(value)
+                b64decode(value, validate=True)
             except Exception:
                 raise ValueError("Is not BASE64-encoded")
-        DlDlBaseData.__init__(self, value)
+        DlBaseData.__init__(self, value)
+        self._typelength = typelength    
 
     @property
     def typecode(self):
