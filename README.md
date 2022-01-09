@@ -21,3 +21,14 @@ Storage of arbitrary data in JSON format preserving elementary source datatypes'
 | DICTIONARY | | | "name": {"field1:i": 1, "field2:s": "ABC", "field3": [{":d": "2020-01-01"}]} | |
 
 Only terminal elements have datatype suffix concatenated with name.
+
+## Datalake RAW data schema
+
+| Name | Type(Bigquery) | NOT NULL | Comments |
+| --- | --- | --- | --- |
+| sys_record_ts | TIMESTAMP | Y | When was registered |
+| sys_event_ts | TIMESTAMP | | When was induced. May be derived from row data later |
+| sys_hash | STRING | Y | Hash of data |
+| sys_meta | STRING | | Aux information in JSON format |
+| sys_cdc_event | STRING | | CDC action code for CDC sources(C/U/D) |
+| sys_data | STRING | Y | JSON-encoded data+schema | 
