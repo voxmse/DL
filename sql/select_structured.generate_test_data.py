@@ -13,4 +13,4 @@ if __name__ == '__main__':
     ]    
 
     for d in v:
-        print(jsondata(d)[0])
+        print(jsondata(d))

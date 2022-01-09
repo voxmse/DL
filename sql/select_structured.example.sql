@@ -1,31 +1,87 @@
+DECLARE var_source_name STRING DEFAULT 'TEST';
+
+-- unified source raw data structure. Normally is stored as a persistent table
 CREATE TEMPORARY TABLE source_data AS
 SELECT
-    CURRENT_TIMESTAMP() sys_ingestion_ts,
-    CURRENT_TIMESTAMP() sys_event_ts,
-    '' AS sys_hash,
+    TIMESTAMP('2020-01-01 18:30:12') sys_record_ts,
+    CURRENT_TIMESTAMP(TIMESTAMP('2020-01-01 18:30:10')) sys_event_ts,
+    'dfcb4730a046d455e56b10f0d9f37bb6449e2d1b' AS sys_hash,
     NULL sys_meta
-    CAST(NULL AS STRING) AS sys_cdc,
-    
+    NULL sys_cdc_event,
+    NULL sys_meta,
+    '{"ADDRESS:s:200":"221b, Baker Street, London, NW1 6XE, UK","BIRTHDAY:d":"2020-01-03","CHILDREN":[],"COMPLEX":{"FILEBODY:x":"s4pQ","FILENAME:s":"FILE1.TXT"},"DEEP":[{"A:i":11,"B:i":12},{"C:i":31}],"ID:i":1,"IS_MARRIED:b":false,"NAME:s":"Sherlock Holmes","SALARY:n:16:2":"12.45","TAXES:n":"687192025652473624789243787872498713367.89012","TEMPERATURE":{"INDOOR:e":21.8,"OUTDOOR:e":2.3},"VISIT_TS:z":"2022-01-09 18:23:48.919507"}' sys_data
+UNION ALL
+SELECT
+    TIMESTAMP('2020-01-01 18:30:12') sys_record_ts,
+    CURRENT_TIMESTAMP(TIMESTAMP('2020-01-01 18:30:10')) sys_event_ts,
+    'c6a259885b5aefd382473c15021f190e2839fa4d' AS sys_hash,
+    NULL sys_meta
+    NULL sys_cdc_event,
+    NULL sys_meta,
+    '{"ADDRESS:s":null,"BIRTHDAY:d":"1987-12-16","CHILDREN":[{":s":"John Watson Jr"}],"COMPLEX":{"FILEBODY:x":"s4pQ","FILENAME:s":"FILE1.TXT"},"DEEP":[{"A:i":1,"B:i":2},{"A:i":3,"B:i":4}],"ID:i":1,"NAME:s":"John H. Watson","SALARY:n:16:2":"1245.12","TAXES:s":"0.45","TEMPERATURE":{"INDOOR:e":21.8,"OUTDOOR:e":2.3},"VISIT_TS:z":null}' sys_data
+;
 
--- fails if col_path.name is not unique, is NULL or is empty
+-- paths to extract column data. Normally is stored as a persistent table
+CREATE TEMPORARY TABLE data_path AS
+SELECT
+    'TEST' source_name,
+    'DEEP' path,
+    'a' types
+UNION ALL    
+    'TEST' source_name,
+    'BIRTHDAY' path,
+    'D' types
+UNION ALL    
+    'TEST' source_name,
+    'IS_MARRIED' path,
+    'b' types
+UNION ALL    
+    'TEST' source_name,
+    'COMPLEX.FILEBODY' path,
+    'x' types
+UNION ALL    
+    'TEST' source_name,
+    '' path,
+    '' types
+UNION ALL    
+    'TEST' source_name,
+    'COMPLEX.FILENAME' path,
+    's' types
+UNION ALL    
+    'TEST' source_name,
+    'CHILDREN' path,
+    's' types
+UNION ALL    
+    'TEST' source_name,
+    'WRONG_PATH' path,
+    's' types
+UNION ALL    
+    'TEST' source_name,
+    'WRONG_TYPE' path,
+    'q' types
+;
+
+
+-- struct with twoo elements
+-- 1) array of data_path elements ordered by data_path.path
+-- 2) string of concatenated data_path.path values in the same order as elements of the above-mentioned array
+-- fails if col_path.name is not unique or a type is wrong. Normally is created as a table function
 DECLARE _Z DEFAULT (
   SELECT AS STRUCT
-    col_path,
-    (
-      SELECT
-        CONCAT(',', STRING_AGG(name ORDER BY offset), ',') AS search_buf
-      FROM (
-        SELECT
-          cp.name,
-          offset,
-          1 / CASE WHEN COUNT(*)OVER(PARTITION BY cp.name)>1 OR cp.name IS NULL OR LENGTH(cp.name)=0 THEN 0 ELSE 1 END AS tst
-        FROM
-          UNNEST(col_path) AS cp WITH OFFSET    
-    )t
-    HAVING SUM(tst)>0) AS search_buf
+    CONCAT(',', STRING_AGG(path ORDER BY path), ',') AS path_map,
+    ARRAY_AGG(STRUCT(path, types) ORDER BY path) AS path_data
+  FROM (
+    SELECT
+      path,
+      types,
+      1 / CASE WHEN COUNT(*)OVER(PARTITION BY path)>1 OR EXISTS (SELECT c FROM UNNEST(SPLIT(types, ''))t WHERE t NOT IN('a','b','d','e','i','l','n','o','p','s','t','z')) THEN 0 ELSE 1 END AS tst
+    FROM
+      data_path    
+  )t
+  HAVING SUM(tst)>0
 );
 
-
+-- function to parse row using array of path elements to array of values. Normally is created as persistent
 CREATE TEMP FUNCTION parseRow(jsonData STRING, pathData ARRAY<STRUCT<path STRING, types STRING>>) RETURNS ARRAY<STRUCT<type STRING, value STRING>> LANGUAGE js AS """
     const TYPEPROPERTY = 'tNpTfVlk3kRJRDnE7kEGVQlVldp2Og';
     const REFPROPERTY = 'Bi66fkj0XChgG2F1aB94d9kZgVFfyw';
