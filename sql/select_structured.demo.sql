@@ -1,3 +1,6 @@
+DECLARE var_path_data ARRAY<STRUCT<path STRING, types STRING>>;
+DECLARE var_path_data_deep ARRAY<STRUCT<path STRING, types STRING>>;
+
 -- unified source raw data structure. Normally is stored as a persistent table
 CREATE TEMPORARY TABLE source_data AS
 SELECT
@@ -19,51 +22,23 @@ SELECT
 
 -- paths to extract column data. Normally is stored as a persistent table
 CREATE TEMPORARY TABLE path_data AS
-SELECT
-    'TEST' source_name,
-    'DEEP' path,
-    'a' types
-UNION ALL
-SELECT
-    'TEST' source_name,
-    'BIRTHDAY' path,
-    'd' types
-UNION ALL
-SELECT
-    'TEST' source_name,
-    'IS_MARRIED' path,
-    'b' types
-UNION ALL
-SELECT
-    'TEST' source_name,
-    'COMPLEX.FILEBODY' path,
-    'x' types
-UNION ALL
-SELECT
-    'TEST' source_name,
-    'COMPLEX.FILENAME' path,
-    's' types
-UNION ALL
-SELECT
-    'TEST' source_name,
-    'CHILDREN' path,
-    's' types
-UNION ALL
-SELECT
-    'TEST' source_name,
-    'WRONG_PATH' path,
-    's' types
--- UNION ALL
--- SELECT
---     'TEST' source_name,
---     'WRONG_TYPE' path,
---     'q' types
+          SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE active,   NULL prefix, 'DEEP' path,             'a' types
+UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE active,   NULL prefix, 'BIRTHDAY' path,         'd' types
+UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE active,   NULL prefix, 'IS_MARRIED' path,       'b' types
+UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE active,   NULL prefix, 'COMPLEX.FILEBODY' path, 'x' types
+UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE active,   NULL prefix, 'COMPLEX.FILENAME' path, 's' types
+UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE active,   NULL prefix, 'CHILDREN' path,         's' types
+UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE active,   NULL prefix, 'WRONG_PATH' path,       's' types
+UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE active, 'DEEP' prefix, 'A' path,                'i' types
+UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE active, 'DEEP' prefix, 'B' path,                'i' types
+UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE active, 'DEEP' prefix, 'C' path,                'i' types
+-- UNION ALL SELECT 'TEST' source_name, 'WRONG_TYPE' path, 'q' types
 ;
 
 
 
 -- function to parse row using array of path elements to array of values. Normally is created as persistent
-CREATE TEMP FUNCTION parseRow(jsonData STRING, pathData ARRAY<STRUCT<path STRING, types STRING>>) RETURNS ARRAY<STRUCT<type STRING, value STRING>> LANGUAGE js AS """
+CREATE TEMP FUNCTION parseJson(jsonData STRING, pathData ARRAY<STRUCT<path STRING, types STRING>>) RETURNS ARRAY<STRUCT<type STRING, value STRING>> LANGUAGE js AS """
     const TYPEPROPERTY = 'tNpTfVlk3kRJRDnE7kEGVQlVldp2Og';
     const REFPROPERTY = 'Bi66fkj0XChgG2F1aB94d9kZgVFfyw';
     // extract value for path
@@ -130,33 +105,107 @@ CREATE TEMP FUNCTION parseRow(jsonData STRING, pathData ARRAY<STRUCT<path STRING
     return resarr;
 """;
 
+-- extract INT value from results of parsing
+CREATE TEMP FUNCTION getInteger(target_path STRING, path_arr ARRAY<STRUCT<path STRING, types STRING>>, data_arr ARRAY<STRUCT<type STRING, value STRING>>, default_value INT64) RETURNS INT64 AS
+  ((WITH guess AS(SELECT ((SELECT offset idx FROM UNNEST(path_arr)t WITH OFFSET WHERE t.path=target_path)) AS idx)
+    SELECT CASE WHEN idx IS NULL OR data_arr[OFFSET(idx)].type IS NULL OR data_arr[OFFSET(idx)].type<>'i' THEN default_value ELSE CAST(NULLIF(data_arr[OFFSET(idx)].value, 'null') AS INT64) END FROM guess));     
+
+-- extract STRING value from results of parsing
 CREATE TEMP FUNCTION getString(target_path STRING, path_arr ARRAY<STRUCT<path STRING, types STRING>>, data_arr ARRAY<STRUCT<type STRING, value STRING>>, default_value STRING) RETURNS STRING AS
   ((WITH guess AS(SELECT ((SELECT offset idx FROM UNNEST(path_arr)t WITH OFFSET WHERE t.path=target_path)) AS idx)
-    SELECT CASE WHEN idx IS NULL OR data_arr[OFFSET(idx)].type<>'s' THEN default_value ELSE data_arr[OFFSET(idx)].value END FROM guess));     
+    SELECT CASE WHEN idx IS NULL OR data_arr[OFFSET(idx)].type IS NULL OR data_arr[OFFSET(idx)].type<>'s' THEN default_value ELSE NULLIF(data_arr[OFFSET(idx)].value, 'null') END FROM guess));     
 
+-- extract DATE value from results of parsing
 CREATE TEMP FUNCTION getDate(target_path STRING, path_arr ARRAY<STRUCT<path STRING, types STRING>>, data_arr ARRAY<STRUCT<type STRING, value STRING>>, default_value DATE) RETURNS DATE AS
   ((WITH guess AS(SELECT ((SELECT offset idx FROM UNNEST(path_arr)t WITH OFFSET WHERE t.path=target_path)) AS idx)
-    SELECT CASE WHEN idx IS NULL OR data_arr[OFFSET(idx)].type<>'d' THEN default_value ELSE CAST(data_arr[OFFSET(idx)].value AS DATE) END FROM guess));  
+    SELECT CASE WHEN idx IS NULL OR data_arr[OFFSET(idx)].type IS NULL OR data_arr[OFFSET(idx)].type<>'d' THEN default_value ELSE CAST(NULLIF(data_arr[OFFSET(idx)].value, 'null') AS DATE) END FROM guess));  
 
+-- extract ARRAY value from results of parsing
+CREATE TEMP FUNCTION getArray(target_path STRING, path_arr ARRAY<STRUCT<path STRING, types STRING>>, data_arr ARRAY<STRUCT<type STRING, value STRING>>, default_value ARRAY<STRUCT<type STRING, value STRING>>) RETURNS ARRAY<STRUCT<type STRING, value STRING>> AS
+  ((WITH guess AS(SELECT ((SELECT offset idx FROM UNNEST(path_arr)t WITH OFFSET WHERE t.path=target_path)) AS idx)
+    SELECT
+      CASE
+        WHEN idx IS NULL OR data_arr[OFFSET(idx)].type IS NULL OR data_arr[OFFSET(idx)].type<>'a' THEN default_value
+        ELSE ((
+          SELECT
+              ARRAY_AGG(
+              CASE
+                WHEN t LIKE '{":%' THEN
+                  CASE
+                    WHEN SUBSTR(t,5,7)='":null}' THEN STRUCT(SUBSTR(t,4,1) AS type, CAST(NULL AS STRING) AS value)
+                    WHEN SUBSTR(t,4,1) IN ('d','t','z','p','s','x') THEN STRUCT(SUBSTR(t,4,1) AS type, SUBSTR(t,8,LENGTH(t)-9) AS value)
+                    ELSE STRUCT(SUBSTR(t,4,1) AS type, SUBSTR(t,7,LENGTH(t)-7) AS value)
+                  END
+                ELSE
+                  CASE
+                    WHEN t LIKE '[%' THEN STRUCT('a' AS type, t AS value)
+                    ELSE STRUCT('o' AS type, t AS value)
+                  END
+              END
+              ORDER BY offset
+            )
+          FROM
+            UNNEST(JSON_QUERY_ARRAY(data_arr[OFFSET(idx)].value))t WITH OFFSET))          
+      END FROM guess));  
 
-WITH path_data AS(
+-- normally this code should be wrapped into a table function
+SET var_path_data = ((
   SELECT
     ARRAY_AGG(STRUCT(path, types) ORDER BY path) AS path_arr
   FROM 
     path_data
   WHERE
     source_name='TEST'
-), parsed_data AS (
+    AND table_name='TABLE1'
+    AND prefix IS NULL
+    AND active));
+
+SET var_path_data_deep  = ((
+  SELECT
+    ARRAY_AGG(STRUCT(path, types) ORDER BY path) AS path_arr
+  FROM 
+    path_data
+  WHERE
+    source_name='TEST'
+    AND table_name='TABLE1'
+    AND prefix='DEEP'
+    AND active));
+
+
+-- principal query
+-- parse JSON data
+WITH parsed_data AS (
   SELECT
     source_data.* EXCEPT(sys_data),
-    parseRow(sys_data, path_arr) parsed_arr
+    parseJson(sys_data, var_path_data) parsed_arr
   FROM
-    source_data,
-    path_data
+    source_data
 )
+-- extract column values
 SELECT
   parsed_data.* EXCEPT(parsed_arr),
-  getString('COMPLEX.FILENAME', path_arr, parsed_arr, NULL) AS filename
+  -- parse JSON of ARRAY<STRUCT<A STRING,B STRING,C STRING>>, extract results and transform to BQ data types
+  (
+    SELECT ARRAY_AGG(
+      ((SELECT AS STRUCT 
+          getInteger('A', var_path_data_deep, elm_parsed, NULL) AS A,
+          getInteger('B', var_path_data_deep, elm_parsed, NULL) AS B,
+          getInteger('C', var_path_data_deep, elm_parsed, NULL) AS C
+        FROM
+          (
+            SELECT
+              CASE
+                WHEN elm.type='o' THEN parseJson(elm.value, var_path_data_deep)
+                ELSE [STRUCT(CAST(NULL AS STRING)AS type, CAST(NULL AS STRING) AS value)]
+              END elm_parsed
+          )t
+      ))
+      ORDER BY offset
+    )
+    FROM UNNEST(getArray('DEEP', var_path_data, parsed_arr, NULL))elm WITH OFFSET
+ ) AS deep,
+  -- get STRING value from the results of parsing
+  getString('COMPLEX.FILENAME', var_path_data, parsed_arr, NULL) AS filename
 FROM
-  parsed_data,
-  path_data;
+  parsed_data
+;

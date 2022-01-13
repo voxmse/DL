@@ -17,8 +17,8 @@ Storage of arbitrary data in JSON format preserving elementary source datatypes'
 | TIMESTAMP | z | | "name:z": "2020-01-28 21:08:59.234576+02:00" | |
 | BOOLEAN | b | | "name:b": True | |
 | RAW | x | typelength | "name:x": "1c24aH"| BASE64, attribute is optional |
-| LIST | | | "name": [{":i":1}, {":s":"ABC"}] | dictionary as wrapper for elements |
-| DICTIONARY | | | "name": {"field1:i": 1, "field2:s": "ABC", "field3": [{":d": "2020-01-01"}]} | |
+| LIST | a | | "name": [{":i":1}, {":s":"ABC"}] | dictionary as wrapper for elements |
+| DICTIONARY | o | | "name": {"field1:i": 1, "field2:s": "ABC", "field3": [{":d": "2020-01-01"}]} | |
 
 Only terminal elements have datatype suffix concatenated with name.
 
