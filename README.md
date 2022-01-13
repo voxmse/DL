@@ -6,7 +6,7 @@ Storage of arbitrary data in JSON format preserving elementary source datatypes'
 
 | Datatype | Code | Attributes | JSON example | note |
 | :---: | :---: | --- | --- | --- |
-| NULL | o | | "name:n": null | |
+| NULL | o | | "name:o": null | |
 | INTEGER | i | | "name:i": 12 | |
 | DOUBLE | e | | "name:e": 12.3456789 | |
 | DECIMAL | n | precision, scale | "name:n:16:2": 123.45 | attributes are optional |
@@ -18,7 +18,7 @@ Storage of arbitrary data in JSON format preserving elementary source datatypes'
 | BOOLEAN | b | | "name:b": True | |
 | RAW | x | typelength | "name:x": "1c24aH"| BASE64, attribute is optional |
 | LIST | a | | "name": [{":i":1}, {":s":"ABC"}] | dictionary as wrapper for elements |
-| DICTIONARY | o | | "name": {"field1:i": 1, "field2:s": "ABC", "field3": [{":d": "2020-01-01"}]} | |
+| DICTIONARY | m | | "name": {"field1:i": 1, "field2:s": "ABC", "field3": [{":d": "2020-01-01"}]} | |
 
 Only terminal elements have datatype suffix concatenated with name.
 

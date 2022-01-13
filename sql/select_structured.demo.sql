@@ -84,7 +84,7 @@ CREATE TEMP FUNCTION parseJson(jsonData STRING, pathData ARRAY<STRUCT<path STRIN
                         break;    
                     default:
                         model[k] = new Object();
-                        model[k][TYPEPROPERTY] = 'o';
+                        model[k][TYPEPROPERTY] = 'm';
                         model[k][REFPROPERTY] = obj[k];
                         fillSearchModel(obj[k], model[k]);
                 }
@@ -139,7 +139,7 @@ CREATE TEMP FUNCTION getArray(target_path STRING, path_arr ARRAY<STRUCT<path STR
                 ELSE
                   CASE
                     WHEN t LIKE '[%' THEN STRUCT('a' AS type, t AS value)
-                    ELSE STRUCT('o' AS type, t AS value)
+                    ELSE STRUCT('m' AS type, t AS value)
                   END
               END
               ORDER BY offset
@@ -195,7 +195,7 @@ SELECT
           (
             SELECT
               CASE
-                WHEN elm.type='o' THEN parseJson(elm.value, var_path_data_deep)
+                WHEN elm.type='m' THEN parseJson(elm.value, var_path_data_deep)
                 ELSE [STRUCT(CAST(NULL AS STRING)AS type, CAST(NULL AS STRING) AS value)]
               END elm_parsed
           )t
