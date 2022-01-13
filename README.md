@@ -32,3 +32,14 @@ Only terminal elements have datatype suffix concatenated with name.
 | sys_meta | STRING | | Aux information in JSON format |
 | sys_cdc_event | STRING | | CDC action code for CDC sources(C/U/D) |
 | sys_data | STRING | Y | JSON-encoded data+schema | 
+
+## JSON data extraction paths schema
+
+| Name | Type(Bigquery) | NOT NULL | Comments |
+| --- | --- | --- | --- |
+| source_name | STRING | Y | source name |
+| table_name | TIMESTAMP | Y | table name |
+| active | BOOLEAN | Y | use for parsing of JSON |
+| prefix | STRING | | path's prefix. Is used for two-stage extraction of complex array data |
+| path | STRING | Y | Dot-separated path to the target field |
+| types | STRING | Y | set of allowed for the path types: "dtzs" |
