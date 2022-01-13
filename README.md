@@ -40,6 +40,7 @@ Only terminal elements have datatype suffix concatenated with name.
 | source_name | STRING | Y | source name |
 | table_name | TIMESTAMP | Y | table name |
 | active | BOOLEAN | Y | use for parsing of JSON |
+| optional | BOOLEAN | Y | check presence of field for reporting |
 | prefix | STRING | | path's prefix. Is used for two-stage extraction of complex array data |
 | path | STRING | Y | Dot-separated path to the target field |
 | types | STRING | Y | set of allowed for the path types: "dtzs" |

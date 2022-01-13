@@ -22,16 +22,16 @@ SELECT
 
 -- paths to extract column data. Normally is stored as a persistent table
 CREATE TEMPORARY TABLE path_data AS
-          SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE active,   NULL prefix, 'DEEP' path,             'a' types
-UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE active,   NULL prefix, 'BIRTHDAY' path,         'd' types
-UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE active,   NULL prefix, 'IS_MARRIED' path,       'b' types
-UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE active,   NULL prefix, 'COMPLEX.FILEBODY' path, 'x' types
-UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE active,   NULL prefix, 'COMPLEX.FILENAME' path, 's' types
-UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE active,   NULL prefix, 'CHILDREN' path,         's' types
-UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE active,   NULL prefix, 'WRONG_PATH' path,       's' types
-UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE active, 'DEEP' prefix, 'A' path,                'i' types
-UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE active, 'DEEP' prefix, 'B' path,                'i' types
-UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE active, 'DEEP' prefix, 'C' path,                'i' types
+          SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE active,   FALSE optional, NULL prefix, 'DEEP' path,             'a' types
+UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE active,   FALSE optional, NULL prefix, 'BIRTHDAY' path,         'd' types
+UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE active,   FALSE optional, NULL prefix, 'IS_MARRIED' path,       'b' types
+UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE active,   FALSE optional, NULL prefix, 'COMPLEX.FILEBODY' path, 'x' types
+UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE active,   FALSE optional, NULL prefix, 'COMPLEX.FILENAME' path, 's' types
+UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE active,   FALSE optional, NULL prefix, 'CHILDREN' path,         's' types
+UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE active,   FALSE optional, NULL prefix, 'WRONG_PATH' path,       's' types
+UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE active, FALSE optional, 'DEEP' prefix, 'A' path,                'i' types
+UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE active, FALSE optional, 'DEEP' prefix, 'B' path,                'i' types
+UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE active, FALSE optional, 'DEEP' prefix, 'C' path,                'i' types
 -- UNION ALL SELECT 'TEST' source_name, 'WRONG_TYPE' path, 'q' types
 ;
 
