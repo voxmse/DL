@@ -2,7 +2,7 @@ from typing import Any, List, Optional, Dict, Union, Tuple
 from decimal import Decimal
 from datetime import date, datetime, time
 from base64 import b64decode
-from json import dumps, JSONEncoder
+from simplejson import dumps
 from hashlib import sha1
 from copy import deepcopy
 from abc import ABC, abstractmethod
@@ -76,11 +76,17 @@ class DlDouble(DlBaseData):
         return "DOUBLE"
 
 
-class DecimalEncoder(JSONEncoder):
-    def default(self, o):
-        if isinstance(o, Decimal):
-            return str(o)
-        return super(DecimalEncoder, self).default(o)
+class fakefloat(float):
+    def __init__(self, value):
+        self._value = value
+    def __repr__(self):
+        return str(self._value)
+
+def defaultencode(o):
+    if isinstance(o, Decimal):
+        # Subclass float with custom repr?
+        return fakefloat(o)
+    raise TypeError(repr(o) + " is not JSON serializable")
         
 class DlDecimal(DlBaseData):
     def __init__(self, value: Optional[Decimal], precision: Optional[int]=None, scale: Optional[int]=None):
@@ -322,6 +328,6 @@ class DlDictionary(DlBaseData):
 
 def jsondata(value: DlDictionary) -> Tuple[str, str]:
     hash = sha1()
-    jsonstring = dumps(value.jsonvalue, separators=(",", ":"), sort_keys=True, cls=DecimalEncoder)
+    jsonstring = dumps(value.jsonvalue, separators=(",", ":"), sort_keys=True)
     hash.update(jsonstring.encode('utf-8'))
     return (jsonstring, hash.hexdigest())
