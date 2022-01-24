@@ -104,7 +104,7 @@ CREATE TEMP FUNCTION parseJson(jsonData STRING, pathData ARRAY<STRUCT<path STRIN
     // parse JSON data
     var objdata = JSON.parse(jsonData);
     // fill aux structure
-    var model = Object();
+    var model = new Object();
     fillSearchModel(objdata, model);
     // get data for each search path
     var resarr = new Array(pathData.length);
@@ -231,7 +231,12 @@ SET var_types_children  = ((
     AND path=''
     AND active));
 
--- principal query
+
+---------------------------------------------------------------------------------
+-- 
+--  Parse JSON RAW data and map to column values
+--
+---------------------------------------------------------------------------------
 -- parse JSON data
 WITH parsed_data AS (
   SELECT
@@ -284,3 +289,70 @@ SELECT
 FROM
   parsed_data
 ;
+
+
+---------------------------------------------------------------------------------
+-- 
+--  Parse JSON RAW data to get structure and statictics
+--
+---------------------------------------------------------------------------------
+-- Counters are STRINGs because INT64 is not supported by JS UDF
+CREATE TEMP FUNCTION analyzeJson(jsonData STRING) RETURNS ARRAY<STRUCT<path STRING, cnt STRING, cntIsNull STRING>> LANGUAGE js AS """
+    function incrementCnt(resDict, prefix) {
+        if (resDict.hasOwnProperty(prefix)) {
+            resDict[prefix] ++;
+        } else {
+            resDict[prefix] = 1;
+        }
+    };
+    
+    function fillStructDict(obj, prefix, resDict, resDictNull) {
+        for (var k in obj) {
+            if (obj[k] === null) {
+                incrementCnt(resDict, prefix == '' ? k : (prefix + '.' + k));
+                incrementCnt(resDictNull, prefix == '' ? k : (prefix + '.' + k));
+            } else if (Array.isArray(obj[k])) {
+                var arr = obj[k];
+                incrementCnt(resDict, prefix == '' ? k : (prefix + '.' + k));
+                for (var i = 0; i < arr.length; i++) {
+                    fillStructDict(arr[i], (prefix == '' ? k : (prefix + '.' + k)) + '[]', resDict, resDictNull)
+                }
+            } else {
+                switch (typeof obj[k]) {
+                    case 'string':
+                    case 'number':
+                    case 'boolean':
+                        incrementCnt(resDict, prefix == '' ? k : (prefix + '.' + k));
+                        break;    
+                    default:
+                        incrementCnt(resDict, prefix == '' ? k : (prefix + '.' + k));
+                        fillStructDict(obj[k], prefix == '' ? k : (prefix + '.' + k), resDict, resDictNull)
+                }
+            }
+        }
+    };
+    
+    function Result(path, cnt, cntIsNull) {
+        this.path = path;
+        this.cnt = cnt;
+        this.cntIsNull = cntIsNull;
+    }
+
+    var objData = JSON.parse(jsonData);
+    var resDict = {'': '1'};
+    var resDictNull = new Object();
+    fillStructDict(objData, '', resDict, resDictNull);
+    return Object.keys(resDict).map((k) => new Result(k, parseInt(resDict[k]), (resDictNull.hasOwnProperty(k)?parseInt(resDictNull[k]):'0')));
+""";
+
+SELECT
+  t.path path,
+  SUM(CAST(t.cnt AS INT64)) cnt,
+  SUM(CAST(t.cntIsNull AS INT64)) cnt_is_null
+FROM
+  source_data,
+  UNNEST(analyzeJson(sys_data))t
+GROUP BY
+  path
+ORDER BY
+  1;
