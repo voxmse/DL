@@ -24,7 +24,7 @@ SELECT
 -- paths to extract column data. Normally is stored as a persistent table
 CREATE TEMPORARY TABLE path_data AS
           SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,       NULL prefix,                'DEEP' path, 'a'  types
-UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,       NULL prefix,                  'ID' path, 'i'  types          
+UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,       NULL prefix,                  'ID' path, 'i'  types
 UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,       NULL prefix,            'BIRTHDAY' path, 'd'  types
 UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,       NULL prefix,            'VISIT_TS' path, 'z'  types
 UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,       NULL prefix,          'IS_MARRIED' path, 'b'  types
@@ -37,7 +37,7 @@ UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE op
 UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,       NULL prefix,  'TEMPERATURE.INDOOR' path, 'e'  types
 UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,       NULL prefix, 'TEMPERATURE.OUTDOOR' path, 'e'  types
 UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,       NULL prefix,            'CHILDREN' path, 'a'  types
-UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, FALSE active, FALSE optional, 'CHILDREN' prefix,                  ''   path, 's'  types
+UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, FALSE active, FALSE optional, 'CHILDREN' prefix,                    '' path, 's'  types
 UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,       NULL prefix,          'WRONG_PATH' path, 's'  types
 UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,     'DEEP' prefix,                   'A' path, 'i'  types
 UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,     'DEEP' prefix,                   'B' path, 'i'  types
@@ -297,7 +297,7 @@ FROM
 --
 ---------------------------------------------------------------------------------
 -- Counters are STRINGs because INT64 is not supported by JS UDF
-CREATE TEMP FUNCTION analyzeJson(jsonData STRING) RETURNS ARRAY<STRUCT<path STRING, cnt STRING, cntIsNull STRING>> LANGUAGE js AS """
+CREATE TEMP FUNCTION analyzeJson(jsonData STRING, includeContainers BOOLEAN) RETURNS ARRAY<STRUCT<path STRING, cnt STRING, cntIsNull STRING>> LANGUAGE js AS """
     function incrementCnt(resDict, prefix) {
         if (resDict.hasOwnProperty(prefix)) {
             resDict[prefix] ++;
@@ -313,7 +313,9 @@ CREATE TEMP FUNCTION analyzeJson(jsonData STRING) RETURNS ARRAY<STRUCT<path STRI
                 incrementCnt(resDictNull, prefix == '' ? k : (prefix + '.' + k));
             } else if (Array.isArray(obj[k])) {
                 var arr = obj[k];
-                incrementCnt(resDict, prefix == '' ? k : (prefix + '.' + k));
+                if (includeContainers) {
+                    incrementCnt(resDict, prefix == '' ? k : (prefix + '.' + k));
+                }
                 for (var i = 0; i < arr.length; i++) {
                     fillStructDict(arr[i], (prefix == '' ? k : (prefix + '.' + k)) + '[]', resDict, resDictNull)
                 }
@@ -325,7 +327,9 @@ CREATE TEMP FUNCTION analyzeJson(jsonData STRING) RETURNS ARRAY<STRUCT<path STRI
                         incrementCnt(resDict, prefix == '' ? k : (prefix + '.' + k));
                         break;    
                     default:
-                        incrementCnt(resDict, prefix == '' ? k : (prefix + '.' + k));
+                        if (includeContainers) {
+                            incrementCnt(resDict, prefix == '' ? k : (prefix + '.' + k));
+                        }
                         fillStructDict(obj[k], prefix == '' ? k : (prefix + '.' + k), resDict, resDictNull)
                 }
             }
@@ -339,10 +343,11 @@ CREATE TEMP FUNCTION analyzeJson(jsonData STRING) RETURNS ARRAY<STRUCT<path STRI
     }
 
     var objData = JSON.parse(jsonData);
-    var resDict = {'': '1'};
+    var resDict = new Object();
     var resDictNull = new Object();
     fillStructDict(objData, '', resDict, resDictNull);
-    return Object.keys(resDict).map((k) => new Result(k, parseInt(resDict[k]), (resDictNull.hasOwnProperty(k)?parseInt(resDictNull[k]):'0')));
+    // include null path which represent the whole row
+    return Object.keys(resDict).map((k) => new Result(k, parseInt(resDict[k]), (resDictNull.hasOwnProperty(k)?parseInt(resDictNull[k]):'0'))).concat([new Result(null, '1', '0')]);
 """;
 
 SELECT
@@ -351,8 +356,68 @@ SELECT
   SUM(CAST(t.cntIsNull AS INT64)) cnt_is_null
 FROM
   source_data,
-  UNNEST(analyzeJson(sys_data))t
+  UNNEST(analyzeJson(sys_data, False))t
 GROUP BY
   path
 ORDER BY
   1;
+
+
+---------------------------------------------------------------------------------
+-- 
+--  Get diff between expected and real paths
+--
+---------------------------------------------------------------------------------
+WITH path_data_onetype AS (
+  SELECT
+    prefix,
+    path,
+    data_type
+  FROM
+    path_data,
+    UNNEST(SPLIT(types,'')) data_type
+  WHERE
+    active
+    AND LENGTH(data_type)=1
+), path_expected AS(
+  SELECT
+    CASE
+      WHEN t1.data_type<>'a' THEN t1.path||':'||t1.data_type
+      ELSE
+        CASE
+          WHEN t2.data_type<>'a' THEN t1.path||'[].'||t2.path||':'||t2.data_type
+          ELSE
+            CASE
+              WHEN t3.data_type<>'a' THEN t1.path||'[]'||t2.path||'[].'||t3.path||':'||t3.data_type
+              ELSE
+                CASE
+                  WHEN t4.data_type<>'a' THEN t1.path||'[]'||t2.path||'[]'||t3.path||'[].'||t4.path||':'||t4.data_type
+                  ELSE 'MORE THAN 4 LEVELS OF ARRAY NESTING IS NOT SUPPORTED BY THE QUERY'
+                END
+            END
+        END
+    END path
+  FROM
+    path_data_onetype t1
+    LEFT JOIN path_data_onetype t2 ON t1.data_type='a' AND t1.prefix IS NULL AND t1.path=t2.prefix
+    LEFT JOIN path_data_onetype t3 ON t2.data_type='a' AND t1.path||'.'||t2.path=t3.prefix
+    LEFT JOIN path_data_onetype t4 ON t4.data_type='a' AND t1.path||'.'||t2.path||'.'||t3.path=t4.prefix
+  WHERE
+    t1.prefix IS NULL 
+), path_real AS(
+  SELECT
+    t.path
+  FROM
+    source_data,
+    UNNEST(analyzeJson(sys_data, False))t
+  GROUP BY
+    path
+)
+SELECT
+  e.path, r.path
+FROM
+   path_expected e
+   FULL OUTER JOIN path_real r ON e.path=r.path
+WHERE
+  e.path IS NULL OR r.path IS NULL
+;
