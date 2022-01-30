@@ -1,3 +1,13 @@
+The idea of this project is to create a base for a simple datalake architecture where:
+
+- JSON format is used to store RAW data
+- Virtually all elementary data types are acceptable
+- Row schema is stored within the row data
+- SQL to parse RAW data
+- Reporting for real data structures and real VS expected compareason
+ 
+The SQL demo script uses Gooogle BigQuery SQL syntax and is based on temporary DB objects
+
 ## DlSchema
 
 Storage of arbitrary data in JSON format preserving elementary source datatypes' attributes

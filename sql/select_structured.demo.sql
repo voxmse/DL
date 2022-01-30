@@ -3,6 +3,7 @@ DECLARE var_path_data_deep ARRAY<STRUCT<path STRING, types STRING>>;
 DECLARE var_types_children STRING;
 
 -- unified source raw data structure. Normally is stored as a persistent table
+-- ???do we need a sys_uuid column???
 CREATE TEMPORARY TABLE source_data AS
 SELECT
     TIMESTAMP('2020-01-01 18:30:12') sys_record_ts,
@@ -21,33 +22,42 @@ SELECT
     '{"ADDRESS:s":null,"BIRTHDAY:d":"1987-12-16","CHILDREN":[{":s":"John Watson Jr"}],"COMPLEX":{"FILEBODY:x":"s4pQ","FILENAME:s":"FILE1.TXT"},"DEEP":[{"A:i":1,"B:i":2},{"A:i":3,"B:i":4}],"ID:i":1,"NAME:s":"John H. Watson","SALARY:n:16:2":1245.12,"TAXES:s":"0.45","TEMPERATURE":{"INDOOR:e":21.8,"OUTDOOR:e":2.3},"VISIT_TS:z":null}' sys_data
 ;
 
--- paths to extract column data. Normally is stored as a persistent table
+-- paths to extract column data(till a terminal element or an Array). Normally is stored as a persistent table.
+-- paths for elements of an array use "prefix" value to point to the parent array 
 CREATE TEMPORARY TABLE path_data AS
-          SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,       NULL prefix,                'DEEP' path, 'a'  types
-UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,       NULL prefix,                  'ID' path, 'i'  types
-UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,       NULL prefix,            'BIRTHDAY' path, 'd'  types
-UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,       NULL prefix,            'VISIT_TS' path, 'z'  types
-UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,       NULL prefix,          'IS_MARRIED' path, 'b'  types
-UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,       NULL prefix,                'NAME' path, 's'  types
-UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,       NULL prefix,             'ADDRESS' path, 's'  types
-UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,       NULL prefix,              'SALARY' path, 'n'  types
-UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,       NULL prefix,               'TAXES' path, 'ns' types
-UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,       NULL prefix,    'COMPLEX.FILEBODY' path, 'x'  types
-UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,       NULL prefix,    'COMPLEX.FILENAME' path, 's'  types
-UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,       NULL prefix,  'TEMPERATURE.INDOOR' path, 'e'  types
-UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,       NULL prefix, 'TEMPERATURE.OUTDOOR' path, 'e'  types
-UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,       NULL prefix,            'CHILDREN' path, 'a'  types
-UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, FALSE active, FALSE optional, 'CHILDREN' prefix,                    '' path, 's'  types
-UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,       NULL prefix,          'WRONG_PATH' path, 's'  types
-UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,     'DEEP' prefix,                   'A' path, 'i'  types
-UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,     'DEEP' prefix,                   'B' path, 'i'  types
-UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,     'DEEP' prefix,                   'C' path, 'i'  types
+          SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,         NULL prefix,                'DEEP' path, 'a'  types
+UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,         NULL prefix,                  'ID' path, 'i'  types
+UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,         NULL prefix,            'BIRTHDAY' path, 'd'  types
+UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,         NULL prefix,            'VISIT_TS' path, 'z'  types
+UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,         NULL prefix,          'IS_MARRIED' path, 'b'  types
+UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,         NULL prefix,                'NAME' path, 's'  types
+UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,         NULL prefix,             'ADDRESS' path, 's'  types
+UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,         NULL prefix,              'SALARY' path, 'n'  types
+UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,         NULL prefix,               'TAXES' path, 'ns' types
+UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,         NULL prefix,    'COMPLEX.FILEBODY' path, 'x'  types
+UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,         NULL prefix,    'COMPLEX.FILENAME' path, 's'  types
+UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,         NULL prefix,  'TEMPERATURE.INDOOR' path, 'e'  types
+UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,         NULL prefix, 'TEMPERATURE.OUTDOOR' path, 'e'  types
+UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,         NULL prefix,            'CHILDREN' path, 'a'  types
+UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,   'CHILDREN' prefix,                    '' path, 's'  types
+UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,         NULL prefix,          'WRONG_PATH' path, 's'  types
+UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,       'DEEP' prefix,                   'A' path, 'i'  types
+UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,       'DEEP' prefix,                   'B' path, 'i'  types
+UNION ALL SELECT 'TEST' source_name, 'TABLE1' table_name, TRUE  active, FALSE optional,       'DEEP' prefix,                   'C' path, 'i'  types
 -- UNION ALL SELECT 'TEST' source_name, 'WRONG_TYPE' path, 'q' types
 ;
 
-
-
+-----------------------------------------------------------------------------------------------------------
 -- function to parse row using array of path elements to array of values. Normally is created as persistent
+-----------------------------------------------------------------------------------------------------------
+--    jsonData - row data in JSON format
+--    pathData - array of paths to extract data from JSON
+--      path - path like USERINFO.NAME
+--      types - list of accepted types of terminal elements like "sd" for strings or datas
+--  RETUENS
+--    Array(in the same order as pathData)
+--      type - type of element like "s", NULL if the path was not found
+--      value - string value(JSON formatting), JSON document for arrays like "['a':{'aa':1}]"
 CREATE TEMP FUNCTION parseJson(jsonData STRING, pathData ARRAY<STRUCT<path STRING, types STRING>>) RETURNS ARRAY<STRUCT<type STRING, value STRING>> LANGUAGE js AS """
     const TYPEPROPERTY = 'tNpTfVlk3kRJRDnE7kEGVQlVldp2Og';
     const REFPROPERTY = 'Bi66fkj0XChgG2F1aB94d9kZgVFfyw';
@@ -227,7 +237,7 @@ SET var_types_children  = ((
   WHERE
     source_name='TEST'
     AND table_name='TABLE1'
-    AND prefix='CHILDREN'
+    AND prefix='CHILDREN[]'
     AND path=''
     AND active));
 
@@ -293,11 +303,20 @@ FROM
 
 ---------------------------------------------------------------------------------
 -- 
---  Parse JSON RAW data to get structure and statictics
+--  Parse JSON RAW row data to get structure and statictics
 --
 ---------------------------------------------------------------------------------
--- Counters are STRINGs because INT64 is not supported by JS UDF
-CREATE TEMP FUNCTION analyzeJson(jsonData STRING, includeContainers BOOLEAN) RETURNS ARRAY<STRUCT<path STRING, cnt STRING, cntIsNull STRING>> LANGUAGE js AS """
+--    jsonData - row data in JSON format
+--    includeContainers - include non-terminal ARRAY and STRUCT paths
+--    stripeNames - remove optional type attributes from a name. Ex: SALARY:n:16:2 -> SALARY:n
+--  Result:
+--    Array of
+--      path - path to the field. Ex: TEMPERATURE.INDOOR:e
+--             The unique NULL path may be used for row counting
+--      cnt - number of elements with the path. STRINGs because INT64 is not supported by JS UDF
+--      cntIsNull - number of NULL elements with the path. STRINGs because INT64 is not supported by JS UDF
+---------------------------------------------------------------------------------
+CREATE TEMP FUNCTION analyzeJson(jsonData STRING, includeContainers BOOLEAN, stripeNames BOOLEAN) RETURNS ARRAY<STRUCT<path STRING, cnt STRING, cntIsNull STRING>> LANGUAGE js AS """
     function incrementCnt(resDict, prefix) {
         if (resDict.hasOwnProperty(prefix)) {
             resDict[prefix] ++;
@@ -306,31 +325,33 @@ CREATE TEMP FUNCTION analyzeJson(jsonData STRING, includeContainers BOOLEAN) RET
         }
     };
     
-    function fillStructDict(obj, prefix, resDict, resDictNull) {
+    function fillStructDict(obj, prefix, resDict, resDictNull, stripeNames) {
+        var name;
         for (var k in obj) {
+            name = stripeNames ? k.split(':').slice(0, 2).join(':') : k;
             if (obj[k] === null) {
-                incrementCnt(resDict, prefix == '' ? k : (prefix + '.' + k));
-                incrementCnt(resDictNull, prefix == '' ? k : (prefix + '.' + k));
+                incrementCnt(resDict, prefix == '' ? name : (prefix + '.' + name));
+                incrementCnt(resDictNull, prefix == '' ? name : (prefix + '.' + name));
             } else if (Array.isArray(obj[k])) {
                 var arr = obj[k];
                 if (includeContainers) {
-                    incrementCnt(resDict, prefix == '' ? k : (prefix + '.' + k));
+                    incrementCnt(resDict, prefix == '' ? name : (prefix + '.' + name));
                 }
                 for (var i = 0; i < arr.length; i++) {
-                    fillStructDict(arr[i], (prefix == '' ? k : (prefix + '.' + k)) + '[]', resDict, resDictNull)
+                    fillStructDict(arr[i], (prefix == '' ? k : (prefix + '.' + k)) + '[]', resDict, resDictNull, stripeNames)
                 }
             } else {
                 switch (typeof obj[k]) {
                     case 'string':
                     case 'number':
                     case 'boolean':
-                        incrementCnt(resDict, prefix == '' ? k : (prefix + '.' + k));
+                        incrementCnt(resDict, prefix == '' ? name : (prefix + '.' + name));
                         break;    
                     default:
                         if (includeContainers) {
-                            incrementCnt(resDict, prefix == '' ? k : (prefix + '.' + k));
+                            incrementCnt(resDict, prefix == '' ? name : (prefix + '.' + name));
                         }
-                        fillStructDict(obj[k], prefix == '' ? k : (prefix + '.' + k), resDict, resDictNull)
+                        fillStructDict(obj[k], prefix == '' ? k : (prefix + '.' + k), resDict, resDictNull, stripeNames)
                 }
             }
         }
@@ -345,7 +366,7 @@ CREATE TEMP FUNCTION analyzeJson(jsonData STRING, includeContainers BOOLEAN) RET
     var objData = JSON.parse(jsonData);
     var resDict = new Object();
     var resDictNull = new Object();
-    fillStructDict(objData, '', resDict, resDictNull);
+    fillStructDict(objData, '', resDict, resDictNull, stripeNames);
     // include null path which represent the whole row
     return Object.keys(resDict).map((k) => new Result(k, parseInt(resDict[k]), (resDictNull.hasOwnProperty(k)?parseInt(resDictNull[k]):'0'))).concat([new Result(null, '1', '0')]);
 """;
@@ -356,7 +377,7 @@ SELECT
   SUM(CAST(t.cntIsNull AS INT64)) cnt_is_null
 FROM
   source_data,
-  UNNEST(analyzeJson(sys_data, False))t
+  UNNEST(analyzeJson(sys_data, False, False))t
 GROUP BY
   path
 ORDER BY
@@ -365,7 +386,7 @@ ORDER BY
 
 ---------------------------------------------------------------------------------
 -- 
---  Get diff between expected and real paths
+--  Get diff between expected and real paths and types
 --
 ---------------------------------------------------------------------------------
 WITH path_data_onetype AS (
@@ -379,7 +400,7 @@ WITH path_data_onetype AS (
   WHERE
     active
     AND LENGTH(data_type)=1
-), path_expected AS(
+), path_expected AS (
   SELECT
     CASE
       WHEN t1.data_type<>'a' THEN t1.path||':'||t1.data_type
@@ -403,21 +424,31 @@ WITH path_data_onetype AS (
     LEFT JOIN path_data_onetype t3 ON t2.data_type='a' AND t1.path||'.'||t2.path=t3.prefix
     LEFT JOIN path_data_onetype t4 ON t4.data_type='a' AND t1.path||'.'||t2.path||'.'||t3.path=t4.prefix
   WHERE
-    t1.prefix IS NULL 
-), path_real AS(
+    t1.prefix IS NULL
+    AND (
+      t1.data_type<>'a'
+      OR (t1.data_type='a' AND t2.data_type<>'a')
+      OR (t2.data_type='a' AND t3.data_type<>'a')
+      OR (t3.data_type='a' AND t4.data_type<>'a')
+    )
+), path_real AS (
   SELECT
     t.path
   FROM
     source_data,
-    UNNEST(analyzeJson(sys_data, False))t
+    UNNEST(analyzeJson(sys_data, False, True))t
+  WHERE
+    t.path IS NOT NULL
   GROUP BY
     path
 )
 SELECT
-  e.path, r.path
+  e.path path_expected, r.path path_real
 FROM
    path_expected e
    FULL OUTER JOIN path_real r ON e.path=r.path
-WHERE
-  e.path IS NULL OR r.path IS NULL
+--WHERE
+--  e.path IS NULL OR r.path IS NULL
+ORDER BY
+  COALESCE(e.path, r.path)
 ;
